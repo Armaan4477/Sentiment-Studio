@@ -128,7 +128,7 @@ class SentimentAnalyzer:
             "waste money", "waste your money", "throw money", "throwing money", 
             "enjoy disappointment", "enjoy frustration", "enjoy problems",
             "hate quality", "garbage", "regret", "junk",
-            "totally worth the regret", "love wasting money", "dream product if you hate sleep",
+            "totally worth the regret", "love wasting  your money", "dream product if you hate sleep",
             "amazing deal... for the trash", "best garbage", "fantastic junk"
         ]
 
