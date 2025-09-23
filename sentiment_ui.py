@@ -138,81 +138,6 @@ class SentimentAnalysisApp(QMainWindow):
         scores_layout.setContentsMargins(0, 10, 0, 0)
         scores_layout.setSpacing(15)
         
-        # Positive score
-        positive_layout = QVBoxLayout()
-        positive_label = QLabel('Positive')
-        positive_label.setFont(QFont('Arial', 10, QFont.Weight.Bold))
-        positive_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        positive_layout.addWidget(positive_label)
-        
-        self.positive_bar = QProgressBar()
-        self.positive_bar.setRange(0, 100)
-        self.positive_bar.setValue(0)
-        self.positive_bar.setStyleSheet("""
-            QProgressBar {
-                border: 1px solid #bbb;
-                border-radius: 3px;
-                text-align: center;
-                height: 20px;
-            }
-            QProgressBar::chunk {
-                background-color: #4CAF50;
-                width: 10px;
-            }
-        """)
-        positive_layout.addWidget(self.positive_bar)
-        scores_layout.addLayout(positive_layout)
-        
-        # Neutral score
-        neutral_layout = QVBoxLayout()
-        neutral_label = QLabel('Neutral')
-        neutral_label.setFont(QFont('Arial', 10, QFont.Weight.Bold))
-        neutral_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        neutral_layout.addWidget(neutral_label)
-        
-        self.neutral_bar = QProgressBar()
-        self.neutral_bar.setRange(0, 100)
-        self.neutral_bar.setValue(0)
-        self.neutral_bar.setStyleSheet("""
-            QProgressBar {
-                border: 1px solid #bbb;
-                border-radius: 3px;
-                text-align: center;
-                height: 20px;
-            }
-            QProgressBar::chunk {
-                background-color: #FFC107;
-                width: 10px;
-            }
-        """)
-        neutral_layout.addWidget(self.neutral_bar)
-        scores_layout.addLayout(neutral_layout)
-        
-        # Negative score
-        negative_layout = QVBoxLayout()
-        negative_label = QLabel('Negative')
-        negative_label.setFont(QFont('Arial', 10, QFont.Weight.Bold))
-        negative_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        negative_layout.addWidget(negative_label)
-        
-        self.negative_bar = QProgressBar()
-        self.negative_bar.setRange(0, 100)
-        self.negative_bar.setValue(0)
-        self.negative_bar.setStyleSheet("""
-            QProgressBar {
-                border: 1px solid #bbb;
-                border-radius: 3px;
-                text-align: center;
-                height: 20px;
-            }
-            QProgressBar::chunk {
-                background-color: #F44336;
-                width: 10px;
-            }
-        """)
-        negative_layout.addWidget(self.negative_bar)
-        scores_layout.addLayout(negative_layout)
-        
         results_layout.addLayout(scores_layout)
         
         # Compound score
@@ -288,11 +213,6 @@ class SentimentAnalysisApp(QMainWindow):
         else:
             self.sentiment_label.setText(f'Sentiment: {sentiment} 😐')
             self.sentiment_label.setStyleSheet('color: #FFC107;')
-        
-        # Update progress bars (convert to percentage)
-        self.positive_bar.setValue(int(scores['pos'] * 100))
-        self.neutral_bar.setValue(int(scores['neu'] * 100))
-        self.negative_bar.setValue(int(scores['neg'] * 100))
         
         # Update compound score
         self.compound_value.setText(f"{scores['compound']:.2f}")
