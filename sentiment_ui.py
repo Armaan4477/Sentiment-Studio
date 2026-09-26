@@ -399,9 +399,32 @@ class SentimentAnalysisApp(QMainWindow):
                     self.sentiment_label.setText('Analyzing (using translation fallback for Hindi)...')
             else:
                 self.sentiment_label.setText('Analyzing natively in Hindi...')
+        elif language == 'English':
+            if not self.analyzer.has_english_model():
+                from PyQt6.QtWidgets import QMessageBox
+                
+                # Style the message box to match theme
+                msg = QMessageBox(self)
+                msg.setWindowTitle('Download English LLM?')
+                msg.setText('The English Large Language Model (~6GB) is not installed.')
+                msg.setInformativeText('Would you like to download it now for highly accurate contextual sarcasm detection?')
+                msg.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                msg.setDefaultButton(QMessageBox.StandardButton.Yes)
+                msg.setStyleSheet(self.styleSheet() + " QMessageBox { background-color: " + self.CARD_BG + "; }")
+                
+                reply = msg.exec()
+                
+                if reply == QMessageBox.StandardButton.Yes:
+                    allow_download = True
+                    self.sentiment_label.setText('Downloading English ML model (this may take a few minutes)...')
+                else:
+                    self.sentiment_label.setText('Please download the model to continue.')
+                    self.sentiment_label.setStyleSheet(f'color: {self.WARNING_COLOR};')
+                    return
+            else:
+                self.sentiment_label.setText('Analyzing natively in English...')
         else:
             self.sentiment_label.setText('Analyzing...')
-            
         self.sentiment_label.setStyleSheet(f'color: {self.ACCENT_COLOR};')
         self.analyze_button.setEnabled(False)
         self.analyze_button.setText('Analyzing...')

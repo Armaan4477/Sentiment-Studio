@@ -41,12 +41,27 @@ class SentimentAnalyzer:
         self.sid = SentimentIntensityAnalyzer()
         self.hindi_pipeline = None
         self.HINDI_MODEL = "cardiffnlp/twitter-xlm-roberta-base-sentiment"
+        self.english_pipeline = None
+        self.ENGLISH_MODEL = "Qwen/Qwen2.5-3B-Instruct"
     
     def has_hindi_model(self):
         """Check if the native Hindi model is downloaded locally."""
+        if self.hindi_pipeline is not None:
+            return True
         try:
-            from transformers import AutoModelForSequenceClassification
-            AutoModelForSequenceClassification.from_pretrained(self.HINDI_MODEL, local_files_only=True)
+            from transformers import AutoConfig
+            AutoConfig.from_pretrained(self.HINDI_MODEL, local_files_only=True)
+            return True
+        except Exception:
+            return False
+
+    def has_english_model(self):
+        """Check if the native English model is downloaded locally."""
+        if self.english_pipeline is not None:
+            return True
+        try:
+            from transformers import AutoConfig
+            AutoConfig.from_pretrained(self.ENGLISH_MODEL, local_files_only=True)
             return True
         except Exception:
             return False
@@ -156,144 +171,65 @@ class SentimentAnalyzer:
 
         processed_text = self.preprocess_text(text_to_analyze)
         
-        # Get sentiment scores
-        scores = self.sid.polarity_scores(processed_text)
+        # Use English Transformer model
+        if not self.has_english_model() and not allow_download:
+            raise ValueError("English model not downloaded and allow_download is False.")
+            
+        if self.english_pipeline is None:
+            from transformers import pipeline
+            import torch
+            self.english_pipeline = pipeline(
+                "text-generation", 
+                model=self.ENGLISH_MODEL, 
+                tokenizer=self.ENGLISH_MODEL, 
+                torch_dtype=torch.bfloat16, 
+                device_map="auto"
+            )
+            
+        # Predict using HuggingFace Generative LLM
+        prompt = f"Analyze the sentiment of the following product review. Consider sarcasm and context carefully. Review: '{processed_text[:1024]}'. Output ONLY a valid JSON object with two keys: 'sentiment' (must be exactly Positive, Negative, or Neutral) and 'confidence' (a float between 0.0 and 1.0). Do not output any other text, markdown formatting, or explanation."
         
-        # Additional handling for common negative phrases that VADER might misclassify
-        lower_text = text.lower()
-        
-        # 🔹 Phrases that should always be negative but might be misclassified
-        negative_phrases = [
-            "don't think", "not worth", "not good enough", "not recommend", 
-            "not worth the money", "not worth the price", "not satisfied",
-            "never buy again", "would not buy", "not impressed", "not acceptable",
-            "not reliable", "not happy", "not useful", "not helpful", "not great",
-            "not recommended", "waste of time", "waste of money", "big disappointment",
-            "poor quality", "very poor", "substandard", "cheaply made", "not durable",
-            "not trustworthy", "not enjoyable", "not comfortable",
-            "great but", "amazing but", "excellent but", "perfect but",
-            "broke after", "stopped after", "failed after", "works until", "great until",
-            "amazing until", "fantastic until", "perfect until", "good until it wasn’t",
-            "works perfectly...", "great...", "excellent...", "perfect...", "sure...",
-            "love it...", "amazing...", "fantastic...", "best...", "yeah right...",
-            "waste money", "waste your money", "throw money", "throwing money", 
-            "enjoy disappointment", "enjoy frustration", "enjoy problems",
-            "hate quality", "garbage", "regret", "junk",
-            "totally worth the regret", "love wasting money", "dream product if you hate sleep",
-            "amazing deal... for the trash", "best garbage", "fantastic junk"
+        messages = [
+            {"role": "system", "content": "You are a highly accurate sentiment analysis API. You only respond in valid JSON format."},
+            {"role": "user", "content": prompt}
         ]
-
-        # 🔹 Product malfunction phrases that should be strongly negative
-        malfunction_phrases = [
-            "does not work", "doesn't work", "not work", "not working",
-            "does not function", "doesn't function", "not functioning",
-            "not operating", "doesn't operate", "does not operate",
-            "broken", "defective", "malfunctioning", "fails to work",
-            "stopped working", "no longer works", "failed", "doesn't perform",
-            "keeps crashing", "keeps freezing", "shuts down randomly", "won't turn on",
-            "does not start", "does not load", "keeps restarting", "boot loop",
-            "faulty", "dead on arrival", "glitchy", "unusable", "buggy",
-            "stops responding", "overheats and shuts down", "screen went black",
-            "does not connect", "loses signal", "battery won't charge",
-            "doesn't hold charge", "fell apart", "stopped charging"
-        ]
-
-        # 🔹 Sarcasm indicators - phrases that indicate sarcasm
-        sarcasm_patterns = [
-            # Conditional sarcasm
-            "great if you", "perfect if you", "excellent if you", "amazing if you", 
-            "wonderful if you", "fantastic if you", "best if you", "ideal if you",
-            "awesome if you", "brilliant if you", "superb if you",
-            
-            # Contrasting clauses
-            "great but", "amazing but", "excellent but", "perfect but",
-            "broke after", "stopped after", "failed after", "works until", "great until",
-            "amazing until", "fantastic until", "perfect until", "good until it wasn’t",
-            
-            # Ellipsis followed by contradiction
-            "works perfectly...", "great...", "excellent...", "perfect...", "sure...",
-            "love it...", "amazing...", "fantastic...", "best...", "yeah right...",
-            
-            # Negative contexts following positive terms
-            "waste money", "waste your money", "throw money", "throwing money", 
-            "enjoy disappointment", "enjoy frustration", "enjoy problems",
-            "hate quality", "garbage", "regret", "junk",
-            "totally worth the regret", "love wasting  your money", "dream product if you hate sleep",
-            "amazing deal... for the trash", "best garbage", "fantastic junk"
-        ]
-
-        # Check for negative phrases that might be misclassified
-        phrase_found = any(phrase in lower_text for phrase in negative_phrases)
-
-        # Check for malfunction phrases
-        malfunction_found = any(phrase in lower_text for phrase in malfunction_phrases)
-
-        # Check for sarcasm patterns
-        sarcasm_found = any(pattern in lower_text for pattern in sarcasm_patterns)
-
-        # Also check for specific sentence structures indicating sarcasm:
-        # 1. Positive sentiment words followed by negative context
-        positive_words = ["great", "amazing", "excellent", "perfect", "wonderful", "fantastic", "best", "brilliant"]
-        negative_contexts = ["waste", "broke", "fail", "disappoint", "regret", "throw", "garbage", "junk", "terrible", "awful", "frustrat"]
-
-        # Split the text into words
-        words = lower_text.split()
-
-        # Check if a positive word is followed by a negative context in the sentence
-        has_positive_followed_by_negative = False
-        for i, word in enumerate(words):
-            if any(pos_word in word for pos_word in positive_words):
-                # Check if any negative context appears after this positive word
-                remaining_text = " ".join(words[i:])
-                if any(neg_context in remaining_text for neg_context in negative_contexts):
-                    has_positive_followed_by_negative = True
-                    break
         
-        # Override score if needed for edge cases
-        if phrase_found and scores['compound'] > -0.1:  # More aggressive threshold
-            # Adjust the compound score to be negative
-            scores['compound'] = -0.2  # Set a mild negative score
-            # Also adjust component scores
-            scores['neg'] = max(scores['neg'], 0.4)
-            scores['pos'] = min(scores['pos'], 0.1)
+        result = self.english_pipeline(messages, max_new_tokens=50, return_full_text=False)[0]
+        generated_text = result['generated_text'].strip()
         
-        # Stronger override for malfunction phrases
-        if malfunction_found:
-            # Always make malfunction phrases strongly negative
-            scores['compound'] = min(scores['compound'], -0.4)  # Set at least a moderate negative score
-            scores['neg'] = max(scores['neg'], 0.6)  # Increase negative component
-            scores['neu'] = min(scores['neu'], 0.4)  # Decrease neutral component
-            scores['pos'] = 0.0  # Remove positive component
-        
-        # For cases where phrases contain both "very" and negative sentiment indicators
-        if "very bad" in lower_text or "very poor" in lower_text or "very terrible" in lower_text:
-            scores['compound'] = min(scores['compound'], -0.7)  # Even stronger negative
-            scores['neg'] = max(scores['neg'], 0.8)
-        
-        # Handle sarcasm - if detected, reverse positive sentiment to negative
-        if (sarcasm_found or has_positive_followed_by_negative) and scores['compound'] > 0:
-            # Reverse the sentiment - make positive scores negative
-            original_compound = scores['compound']
-            scores['compound'] = -original_compound  # Invert the sentiment
+        # Clean up any potential markdown formatting the LLM might have added
+        if generated_text.startswith("```json"):
+            generated_text = generated_text[7:]
+        elif generated_text.startswith("```"):
+            generated_text = generated_text[3:]
+        if generated_text.endswith("```"):
+            generated_text = generated_text[:-3]
+        generated_text = generated_text.strip()
             
-            # Swap positive and negative scores
-            original_pos = scores['pos']
-            scores['pos'] = 0.0
-            scores['neg'] = max(scores['neg'], original_pos)
+        import json
+        try:
+            parsed = json.loads(generated_text)
+            sentiment_str = parsed.get('sentiment', 'Neutral')
+            score = float(parsed.get('confidence', 0.5))
+        except Exception as e:
+            print(f"Failed to parse LLM output: {generated_text}, error: {e}")
+            sentiment_str = 'Neutral'
+            score = 0.0
             
-            # Ensure the compound score is sufficiently negative
-            scores['compound'] = min(scores['compound'], -0.3)
-        
-        # Determine sentiment category based on compound score
-        if scores['compound'] >= 0.05:
-            sentiment = "Positive"
+        if sentiment_str.lower() == 'positive':
+            sentiment = 'Positive'
             sentiment_id = 2
-        elif scores['compound'] <= -0.05:
-            sentiment = "Negative"
+            compound = score
+        elif sentiment_str.lower() == 'negative':
+            sentiment = 'Negative'
             sentiment_id = 0
+            compound = -score
         else:
-            sentiment = "Neutral"
+            sentiment = 'Neutral'
             sentiment_id = 1
+            compound = 0.0
+            
+        scores = {'compound': compound, 'pos': score if sentiment == 'Positive' else 0, 'neg': score if sentiment == 'Negative' else 0, 'neu': score if sentiment == 'Neutral' else 0}
         
         aspects = self.analyze_aspects(text_to_analyze, language='English')
         emotions = self.analyze_emotions(text_to_analyze, language='English')
@@ -479,7 +415,7 @@ def analyze_review(text, language='English'):
         language (str): Language of the review.
     """
     analyzer = SentimentAnalyzer()
-    result = analyzer.predict(text, language)
+    result = analyzer.predict(text, language, allow_download=True)
     
     print(f"Review: \"{text}\"")
     if result.get('translated_text'):
@@ -503,7 +439,15 @@ if __name__ == "__main__":
         "The quality is decent but not exceptional.",
         "Terrible product. Broke after one use. Don't waste your money.",
         "Average performance, nothing special but it works.",
-        "Best purchase I've made all year! Highly recommended!"
+        "Best purchase I've made all year! Highly recommended!",
+        # Basic sentences
+        "okay",
+        "not bad",
+        "terrible",
+        # Sarcastic sentences
+        "Yeah right, like I'm going to buy this again.",
+        "Oh fantastic, it arrived broken. Just what I needed.",
+        "Great product if you enjoy wasting your time."
     ]
     
     print("Analyzing sample reviews:")
