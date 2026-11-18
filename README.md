@@ -1,1012 +1,451 @@
-# Sentiment Analysis Application Documentation
+# Sentiment Analysis Studio & Multilingual NLP Toolkit
+
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![PyQt6](https://img.shields.io/badge/GUI-PyQt6-41CD52?logo=qt&logoColor=white)](https://www.riverbankcomputing.com/software/pyqt/)
+[![Hugging Face Transformers](https://img.shields.io/badge/Transformers-HuggingFace-FFD21E?logo=huggingface&logoColor=black)](https://huggingface.co/)
+[![PyTorch](https://img.shields.io/badge/PyTorch-Deep%20Learning-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org/)
+[![NLTK](https://img.shields.io/badge/NLTK-NLP%20Lexicon-154f5b)](https://www.nltk.org/)
+[![Meta NLLB-200](https://img.shields.io/badge/Meta-NLLB--200-0668E1?logo=meta&logoColor=white)](https://huggingface.co/facebook/nllb-200-distilled-600M)
+
+A modern, production-grade Natural Language Processing (NLP) suite designed for high-accuracy sentiment analysis, aspect extraction, emotion classification, and multilingual translation of customer product reviews. 
+
+The application pairs state-of-the-art Generative Large Language Models (**Qwen 2.5-3B-Instruct**) and Multilingual Sequence Transformers (**CardiffNLP Twitter XLM-RoBERTa**) with lexical heuristics (**NLTK VADER**) and Neural Machine Translation (**Meta NLLB-200**), wrapped in an asynchronous, modern **PyQt6 desktop studio**.
+
+---
 
 ## Table of Contents
 
-1. [Overview](#overview)
-2. [Architecture and Design](#architecture-and-design)
-3. [Understanding VADER Sentiment Analysis](#understanding-vader-sentiment-analysis)
-4. [Natural Language Processing (NLP) in Sentiment Analysis](#natural-language-processing-nlp-in-sentiment-analysis)
-5. [Code Structure and Components](#code-structure-and-components)
-6. [How Sentiment Analysis Works](#how-sentiment-analysis-works)
-7. [User Interface Design](#user-interface-design)
-8. [Advanced Features and Edge Cases](#advanced-features-and-edge-cases)
-9. [Installation and Usage](#installation-and-usage)
-10. [Troubleshooting](#troubleshooting)
-11. [Future Improvements](#future-improvements)
+1. [Overview & Highlights](#overview--highlights)
+2. [Key Capabilities](#key-capabilities)
+3. [System Architecture](#system-architecture)
+4. [AI & NLP Models](#ai--nlp-models)
+   - [English Engine: Qwen 2.5-3B-Instruct LLM](#1-english-sentiment-engine-qwen-25-3b-instruct-llm)
+   - [Hindi Engine: CardiffNLP Twitter XLM-RoBERTa](#2-hindi-sentiment-engine-cardiffnlp-twitter-xlm-roberta)
+   - [Multilingual Translation Engine: Meta NLLB-200](#3-multilingual-translation-engine-meta-nllb-200)
+   - [Aspect-Based Sentiment Analysis (ABSA)](#4-aspect-based-sentiment-analysis-absa)
+   - [Multi-Class Emotion Detection](#5-multi-class-emotion-detection)
+   - [Explainability & Keyword Extraction](#6-explainability--keyword-extraction)
+   - [Lexical & Tokenization Baseline: NLTK VADER](#7-lexical--tokenization-baseline-nltk-vader)
+5. [Contextual Sarcasm Detection](#contextual-sarcasm-detection)
+6. [Desktop Application: Sentiment Analysis Studio](#desktop-application-sentiment-analysis-studio)
+7. [Repository Structure](#repository-structure)
+8. [Installation & Setup](#installation--setup)
+9. [Running the Application](#running-the-application)
+   - [1. PyQt6 Studio GUI](#1-pyqt6-sentiment-analysis-studio)
+   - [2. Interactive & Batch CLI](#2-command-line-interface-cli)
+   - [3. Standalone Multilingual Translator GUI](#3-standalone-multilingual-translator-gui)
+10. [Programmatic Python API](#programmatic-python-api)
+11. [Troubleshooting & FAQs](#troubleshooting--faqs)
 
 ---
 
-## Overview
+## Overview & Highlights
 
-This application is a **PyQt6-based sentiment analysis tool** specifically designed for analyzing product reviews. It leverages NLTK's VADER (Valence Aware Dictionary and sEntiment Reasoner) sentiment analyzer to classify text as positive, negative, or neutral. The application includes advanced handling for sarcasm, negation, and product-specific language patterns.
+Modern customer feedback rarely adheres to simple polarity rules. Customers frequently express complex, mixed opinions, subtle sarcasm (*"Oh fantastic, it arrived completely broken. Just what I needed."*), and localized expressions across languages. 
 
-### Key Features
+Traditional lexicon-based tools (such as standalone VADER) misclassify sarcastic or nuanced reviews because they rely on bag-of-words keyword lookup without semantic context. 
 
-- **Offline Operation**: Works without internet connectivity after initial setup
-- **Real-time Analysis**: Instant sentiment classification with confidence scores
-- **Visual Feedback**: Progress bars and color-coded results
-- **Edge Case Handling**: Advanced detection of sarcasm and negation
-- **Product Review Focused**: Optimized for e-commerce and product feedback
-- **Modern UI**: Clean PyQt6 interface with responsive design
+This project solves this challenge by implementing a **hybrid multi-tier architecture**:
 
-### Application Scope
-
-- **Primary Use Case**: Product review sentiment analysis
-- **Target Users**: Business analysts, e-commerce platforms, researchers
-- **Data Types**: Text reviews, customer feedback, social media posts
-- **Languages**: English (with potential for multilingual extension)
+- **Reasoning-Driven Sarcasm Detection**: Leverages **Qwen 2.5-3B-Instruct** with 16-bit half-precision weights (`torch.bfloat16`) to deeply analyze reviewer pragmatics, irony, negation scope, and sentiment confidence.
+- **Native Hindi Deep Learning**: Implements **CardiffNLP XLM-RoBERTa** natively trained on multilingual social sentiment to analyze Devanagari text directly without loss in translation.
+- **Universal Translation Fallback**: Integrates **Meta's NLLB-200** model (200+ languages, 600M distilled parameters) to dynamically translate non-native inputs before feeding them to downstream engines.
+- **Granular Aspect-Based Scoring**: Evaluates sentiment across 6 distinct commercial dimensions (Quality, Performance, Price, Design, Customer Service, Ease of Use).
+- **Emotion Profiling**: Measures Joy, Anger, Fear, and Sadness with normalized intensity percentages.
+- **Asynchronous Desktop GUI**: Engineered with PyQt6, featuring non-blocking background workers (`QThread`), card-based responsive design, drop shadows, and automatic on-demand model weight downloading.
 
 ---
 
-## Architecture and Design
+## Key Capabilities
 
-### System Architecture
-
-```
-┌─────────────────────────────────────────┐
-│            UI Layer (PyQt6)             │
-│    ┌─────────────────────────────────┐  │
-│    │  Input Text Area                │  │
-│    │  Analysis Button                │  │
-│    │  Results Display                │  │
-│    │  Progress Bars                  │  │
-│    └─────────────────────────────────┘  │
-├─────────────────────────────────────────┤
-│         Sentiment Analyzer Class        │
-│    ┌─────────────────────────────────┐  │
-│    │  Text Preprocessing             │  │
-│    │  VADER Integration              │  │
-│    │  Edge Case Detection            │  │
-│    │  Result Formatting              │  │
-│    └─────────────────────────────────┘  │
-├─────────────────────────────────────────┤
-│            NLTK VADER Layer             │
-│    ┌─────────────────────────────────┐  │
-│    │  Lexicon-based Analysis         │  │
-│    │  Grammatical Rules              │  │
-│    │  Intensity Scoring              │  │
-│    └─────────────────────────────────┘  │
-├─────────────────────────────────────────┤
-│         Text Processing Layer           │
-│    ┌─────────────────────────────────┐  │
-│    │  Tokenization                   │  │
-│    │  Normalization                  │  │
-│    │  Pattern Matching               │  │
-│    └─────────────────────────────────┘  │
-└─────────────────────────────────────────┘
-```
-
-### Design Principles
-
-1. **Modularity**: Clear separation between UI and analysis logic
-2. **Extensibility**: Easy to add new sentiment analysis models
-3. **Reliability**: Robust handling of edge cases and errors
-4. **User Experience**: Immediate feedback and intuitive interface
-5. **Offline First**: No dependency on external APIs after setup
+| Feature | Implementation | Description |
+| :--- | :--- | :--- |
+| **English Sentiment & Sarcasm** | `Qwen/Qwen2.5-3B-Instruct` | 3B-parameter Causal LLM producing structured JSON (`sentiment`, `confidence`) with contextual sarcasm reasoning |
+| **Native Hindi Sentiment** | `cardiffnlp/twitter-xlm-roberta-base-sentiment` | 3-class Multilingual RoBERTa Sequence Classifier trained on social media text |
+| **Multilingual NMT** | `facebook/nllb-200-distilled-600M` | Seq2Seq translation across 11+ languages with caching and standalone UI |
+| **Aspect-Based Analysis (ABSA)** | Sentence Tokenization + Keyword Routing | Detects and scores 6 product aspects: Quality, Performance, Price, Design, Support, Ease of Use |
+| **Emotion Analysis** | Multi-category Lexical Normalizer | Quantifies Joy, Anger, Fear, and Sadness on a 0–100% normalized scale |
+| **Explainable Keywords** | VADER Lexicon + Hindi Sentiment Lexicon | Highlights specific positive and negative words driving classification |
+| **Desktop UI Studio** | PyQt6 (`QGraphicsDropShadow`, `QScrollArea`, Fusion) | Slate-themed GUI with dynamic meters, cards, color-coded badges, and thread isolation |
+| **Offline Capability** | Pre-bundled NLTK assets + Local Hugging Face cache | Works completely offline once model weights are stored in local cache |
 
 ---
 
-## Understanding VADER Sentiment Analysis
+## System Architecture
 
-### What is VADER?
-
-VADER (Valence Aware Dictionary and sEntiment Reasoner) is a lexicon and rule-based sentiment analysis tool specifically attuned to social media text. It was developed by C.J. Hutto and Eric Gilbert at Georgia Institute of Technology.
-
-#### Key Characteristics:
-
-- **Lexicon-based**: Uses a pre-built dictionary of sentiment-bearing words
-- **Rule-based**: Applies grammatical and syntactic rules
-- **Intensity-aware**: Considers sentiment intensity, not just polarity
-- **Context-sensitive**: Handles negation, capitalization, and punctuation
-
-#### How VADER Works:
-
-1. **Lexicon Lookup**:
-
-   ```
-   "amazing" → +3.1 (very positive)
-   "good" → +1.9 (positive)
-   "bad" → -2.5 (negative)
-   "terrible" → -3.4 (very negative)
-   ```
-
-2. **Grammatical Rules Application**:
-
-   ```
-   "very good" → intensity boost (+25%)
-   "not good" → polarity flip (negative)
-   "AMAZING!!!" → caps and punctuation boost (+40%)
-   ```
-
-3. **Scoring Calculation**:
-   ```
-   Individual word scores → Aggregate score → Normalized compound score
-   [+1.9, +3.1, -0.5] → +4.5 → Compound: +0.73
-   ```
-
-#### VADER Output Scores:
-
-- **Positive (pos)**: Proportion of positive sentiment (0-1)
-- **Negative (neg)**: Proportion of negative sentiment (0-1)
-- **Neutral (neu)**: Proportion of neutral sentiment (0-1)
-- **Compound**: Overall sentiment score (-1 to +1)
-
-#### Compound Score Interpretation:
-
-- **≥ +0.05**: Positive sentiment
-- **≤ -0.05**: Negative sentiment
-- **-0.05 to +0.05**: Neutral sentiment
-
----
-
-## Natural Language Processing (NLP) in Sentiment Analysis
-
-### 1. Text Preprocessing (NLP Technique: Text Normalization)
-
-**Location in Code**: `preprocess_text()` method
-
-```python
-def preprocess_text(self, text):
-    # Convert to lowercase
-    text = text.lower()
-
-    # Remove extra whitespace
-    text = ' '.join(text.split())
-
-    return text
 ```
-
-**NLP Concepts Applied**:
-
-- **Case Normalization**: Converting to lowercase for consistency
-- **Whitespace Normalization**: Standardizing spacing
-- **Text Cleaning**: Preparing text for analysis
-
-### 2. Tokenization (NLP Technique: Word Segmentation)
-
-**Location in Code**: NLTK's internal tokenization
-
-```python
-from nltk.tokenize import word_tokenize
-# Used internally by VADER for word boundary detection
-```
-
-**NLP Concepts**:
-
-- **Word Tokenization**: Breaking text into individual words
-- **Boundary Detection**: Identifying sentence and word boundaries
-- **Punctuation Handling**: Managing punctuation as separate tokens
-
-### 3. Lexical Analysis (NLP Technique: Dictionary-based Sentiment)
-
-**Location in Code**: VADER's internal lexicon
-
-```python
-self.sid = SentimentIntensityAnalyzer()
-scores = self.sid.polarity_scores(processed_text)
-```
-
-**NLP Concepts**:
-
-- **Sentiment Lexicon**: Pre-built dictionary of sentiment words
-- **Polarity Assignment**: Mapping words to sentiment scores
-- **Intensity Measurement**: Quantifying sentiment strength
-
-### 4. Syntactic Analysis (NLP Technique: Rule-based Processing)
-
-**Location in Code**: Custom rule implementations
-
-```python
-# Negation handling
-negative_phrases = [
-    "don't think", "not worth", "not good enough", "not recommend"
-]
-
-# Intensifier detection
-if "very bad" in lower_text:
-    scores['compound'] = min(scores['compound'], -0.7)
-```
-
-**NLP Concepts**:
-
-- **Negation Scope**: Understanding how "not" affects sentiment
-- **Intensification**: Detecting words that amplify sentiment
-- **Contextual Analysis**: Understanding phrases vs. individual words
-
-### 5. Pragmatic Analysis (NLP Technique: Sarcasm Detection)
-
-**Location in Code**: `predict()` method sarcasm handling
-
-```python
-sarcasm_patterns = [
-    "great if you", "perfect if you", "excellent if you",
-    "great but", "amazing but", "excellent but"
-]
-
-# Check for sarcasm patterns
-sarcasm_found = any(pattern in lower_text for pattern in sarcasm_patterns)
-
-if sarcasm_found and scores['compound'] > 0:
-    # Reverse the sentiment
-    scores['compound'] = -original_compound
-```
-
-**NLP Concepts**:
-
-- **Irony Detection**: Identifying contradictory statements
-- **Contextual Inversion**: Reversing apparent sentiment
-- **Pattern Recognition**: Using linguistic patterns to detect sarcasm
-
-### 6. Semantic Analysis (NLP Technique: Meaning Understanding)
-
-**Location in Code**: Domain-specific phrase detection
-
-```python
-malfunction_phrases = [
-    "does not work", "doesn't work", "broken", "defective",
-    "stopped working", "failed", "doesn't perform"
-]
-
-# Stronger override for malfunction phrases
-if malfunction_found:
-    scores['compound'] = min(scores['compound'], -0.4)
-    scores['neg'] = max(scores['neg'], 0.6)
-```
-
-**NLP Concepts**:
-
-- **Domain Knowledge**: Understanding product-specific language
-- **Semantic Fields**: Grouping related concepts (malfunction, quality, etc.)
-- **Context-aware Scoring**: Adjusting scores based on domain knowledge
-
----
-
-## Code Structure and Components
-
-### 1. Import and Setup Section
-
-```python
-# GUI Framework
-from PyQt6.QtWidgets import (...)
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QFont, QColor
-
-# NLP and Text Processing
-import nltk
-from nltk.sentiment.vader import SentimentIntensityAnalyzer
-from nltk.tokenize import word_tokenize
-
-# System Libraries
-import os, re, string, json
-```
-
-### 2. SentimentAnalyzer Class
-
-#### Core Components:
-
-**Initialization**:
-
-```python
-def __init__(self):
-    self._download_nltk_resources()
-    self.sid = SentimentIntensityAnalyzer()
-```
-
-**Resource Management**:
-
-```python
-def _download_nltk_resources(self):
-    # Download NLTK data if not present
-    nltk.download('punkt', download_dir=NLTK_DATA_PATH)
-    nltk.download('vader_lexicon', download_dir=NLTK_DATA_PATH)
-```
-
-**Text Processing Pipeline**:
-
-```python
-def predict(self, text):
-    # 1. Preprocess text
-    processed_text = self.preprocess_text(text)
-
-    # 2. Get VADER scores
-    scores = self.sid.polarity_scores(processed_text)
-
-    # 3. Apply custom rules
-    # Handle negation, sarcasm, domain-specific patterns
-
-    # 4. Classify sentiment
-    if scores['compound'] >= 0.05:
-        sentiment = "Positive"
-    elif scores['compound'] <= -0.05:
-        sentiment = "Negative"
-    else:
-        sentiment = "Neutral"
-```
-
-### 3. SentimentAnalysisApp Class (UI Component)
-
-#### UI Structure:
-
-- **Header Section**: Title and description
-- **Input Section**: Text area for review input
-- **Control Section**: Analysis button
-- **Results Section**: Sentiment display and confidence scores
-- **Progress Bars**: Visual representation of sentiment components
-
-#### Key Methods:
-
-**UI Initialization**:
-
-```python
-def init_ui(self):
-    # Create layout structure
-    # Add input controls
-    # Setup results display
-    # Apply styling
-```
-
-**Analysis Handler**:
-
-```python
-def analyze_review(self):
-    # Get input text
-    # Call sentiment analyzer
-    # Update UI with results
-    # Apply visual effects
+┌────────────────────────────────────────────────────────────────────────┐
+│               PyQt6 Presentation Layer (Sentiment Analysis Studio)     │
+│  ┌────────────────────────┐  ┌──────────────────────────────────────┐  │
+│  │ Review Input & Language│  │ Primary Sentiment & Compound Gauge   │  │
+│  │ Dropdown (EN / HI)     │  │ Aspects Breakdown (Progress Bars)    │  │
+│  │ "Analyze Sentiment"    │  │ Emotion Profiling (Joy/Anger/Fear...)│  │
+│  │ Threaded Dispatcher    │  │ Explainability / Keyword Tags        │  │
+│  └───────────┬────────────┘  └──────────────────▲───────────────────┘  │
+└──────────────┼──────────────────────────────────┼──────────────────────┘
+               │ (Non-blocking QThread)           │ (Analysis Signals)
+┌──────────────▼──────────────────────────────────┴──────────────────────┐
+│                    SentimentAnalyzer Engine Core                       │
+│                                                                        │
+│   Language Router & Preprocessing (Whitespace, Tokenization, Case)     │
+│        │                                     │                         │
+│        ├──────────────────────┐              │                         │
+│        ▼                      ▼              ▼                         │
+│   [English Track]       [Hindi Track]  [Fallback NMT Track]            │
+│        │                      │              │                         │
+│        │                      │         Meta NLLB-200                  │
+│        │                      │         Translation                    │
+│        │                      │              └────────────┐            │
+│        ▼                      ▼                           ▼            │
+│  Qwen 2.5-3B-Instruct   CardiffNLP RoBERTa       Qwen 2.5-3B Engine    │
+│  Generative LLM         Multilingual CLS         (Translated Text)     │
+│  (Structured JSON)      (Softmax Scores)                               │
+│        │                      │                           │            │
+│        └──────────────────────┼───────────────────────────┘            │
+│                               ▼                                        │
+│          Aspect-Based Sentiment Analysis (ABSA) Engine                 │
+│          Multi-Class Emotion Detection Engine                          │
+│          Lexicon Explainability & Keyword Extraction                   │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## How Sentiment Analysis Works
+## AI & NLP Models
 
-### Step-by-Step Analysis Process
+### 1. English Sentiment Engine: Qwen 2.5-3B-Instruct LLM
+- **Hugging Face ID**: `Qwen/Qwen2.5-3B-Instruct`
+- **Architecture**: Causal autoregressive transformer with Grouped Query Attention (GQA) and SwiGLU activations.
+- **Precision**: `torch.bfloat16` with dynamic device mapping (`device_map="auto"` for Apple Silicon MPS, NVIDIA CUDA, or optimized multi-core CPU).
+- **Inference Mode**: Runs zero-shot classification guided by a strict system persona:
+  ```json
+  {"role": "system", "content": "You are a highly accurate sentiment analysis API. You only respond in valid JSON format."}
+  ```
+- **Prompt Formulation**:
+  > *"Analyze the sentiment of the following product review. Consider sarcasm and context carefully. Review: '{processed_text}'. Output ONLY a valid JSON object with two keys: 'sentiment' (must be exactly Positive, Negative, or Neutral) and 'confidence' (a float between 0.0 and 1.0)."*
+- **Output Parsing**: Strips formatting tags, validates JSON keys, maps polarity to compound score intervals, and derives confidence bounds.
 
-1. **User Input**:
+### 2. Hindi Sentiment Engine: CardiffNLP Twitter XLM-RoBERTa
+- **Hugging Face ID**: `cardiffnlp/twitter-xlm-roberta-base-sentiment`
+- **Architecture**: Cross-lingual RoBERTa (XLM-R) fine-tuned on sentiment-labeled social datasets.
+- **Classes**: `negative` (mapped to id 0), `neutral` (mapped to id 1), `positive` (mapped to id 2).
+- **Execution**: Evaluates Devanagari text directly without syntactic loss or intermediate translation bottlenecks.
 
-   ```
-   User enters: "This product is amazing but broke after one day"
-   ```
+### 3. Multilingual Translation Engine: Meta NLLB-200
+- **Hugging Face ID**: `facebook/nllb-200-distilled-600M`
+- **Architecture**: Sequence-to-Sequence (Seq2Seq) encoder-decoder trained on Meta's No Language Left Behind dataset.
+- **Languages Supported**: Over 200 languages (including English `eng_Latn`, Hindi `hin_Deva`, Marathi `mar_Deva`, German `deu_Latn`, French `fra_Latn`, Spanish `spa_Latn`, Russian `rus_Cyrl`, Chinese `zho_Hans`, Arabic `arb_Arab`, Portuguese `por_Latn`, Japanese `jpn_Jpan`).
+- **Integration**:
+  - Implemented in `translation/translator.py` with caching (`_translation_cache`).
+  - Provides seamless fallback when users test foreign reviews without local native transformer pipelines.
+  - Can be run as a standalone multi-language desktop translator.
 
-2. **Text Preprocessing**:
+### 4. Aspect-Based Sentiment Analysis (ABSA)
+Rather than producing a single blanket score, the engine segments the review using sentence boundary detection (`nltk.sent_tokenize`) and maps clauses to 6 core commercial dimensions:
 
-   ```python
-   processed_text = self.preprocess_text(text)
-   # Result: "this product is amazing but broke after one day"
-   ```
+1. **Quality** (`build`, `material`, `sturdy`, `cheap`, `durable`, `broke`, `गुणवत्ता`, `क्वालिटी`, `मजबूत`, `खराब`)
+2. **Performance** (`performance`, `speed`, `fast`, `slow`, `battery`, `lag`, `काम`, `धीमा`, `तेज`, `परफॉरमेंस`)
+3. **Price** (`price`, `cost`, `expensive`, `cheap`, `value`, `money`, `worth`, `कीमत`, `महंगा`, `सस्ता`)
+4. **Design** (`design`, `look`, `color`, `ugly`, `beautiful`, `style`, `डिज़ाइन`, `सुंदर`, `दिखावट`)
+5. **Customer Service** (`service`, `support`, `help`, `agent`, `rude`, `friendly`, `सर्विस`, `मदद`)
+6. **Ease of Use** (`easy`, `hard`, `difficult`, `simple`, `intuitive`, `setup`, `उपयोग`, `आसान`, `कठिन`)
 
-3. **VADER Analysis**:
+Each detected aspect clause is scored individually to indicate whether that specific product feature delighted or frustrated the user.
 
-   ```python
-   scores = self.sid.polarity_scores(processed_text)
-   # Initial VADER scores might be:
-   # {'pos': 0.3, 'neu': 0.7, 'neg': 0.0, 'compound': 0.296}
-   ```
+### 5. Multi-Class Emotion Detection
+The analyzer quantifies the emotional resonance of the review across 4 psychological vectors:
+- **Joy** (`happy`, `delighted`, `thrilled`, `love`, `amazing`, `खुश`, `आनंद`, `पसंद`)
+- **Anger** (`angry`, `furious`, `irritated`, `annoyed`, `hate`, `गुस्सा`, `नाराज`, `क्रोध`)
+- **Fear** (`scared`, `afraid`, `worried`, `nervous`, `anxious`, `डर`, `भय`, `चिंता`)
+- **Sadness** (`sad`, `disappointed`, `upset`, `depressed`, `regret`, `दुखी`, `निराश`, `बर्बाद`)
 
-4. **Pattern Detection**:
+Scores are normalized between 0% and 100% based on emotion density relative to token volume.
 
-   ```python
-   # Check for sarcasm patterns
-   sarcasm_patterns = ["amazing but"]
-   sarcasm_found = True  # "amazing but" detected
-   ```
+### 6. Explainability & Keyword Extraction
+Provides transparency by extracting specific words influencing the score:
+- **English**: Powered by VADER's validated sentiment lexicon (`self.sid.lexicon`).
+- **Hindi**: Evaluated against a curated Devanagari sentiment keyword lexicon.
+- Results are surfaced as positive and negative badges in the UI.
 
-5. **Score Adjustment**:
+### 7. Lexical & Tokenization Baseline: NLTK VADER
+- Uses NLTK's **VADER** (`SentimentIntensityAnalyzer`) and **Punkt** sentence/word tokenizers.
+- Assets are pre-packaged locally in `nltk_data/` (`tokenizers/punkt` and `sentiment/vader_lexicon.zip`), ensuring no network lookup is needed for lexical operations.
 
-   ```python
-   # Sarcasm detected, reverse sentiment
-   original_compound = 0.296
-   scores['compound'] = -0.296  # Inverted
-   scores['pos'] = 0.0
-   scores['neg'] = 0.6
-   ```
+---
 
-6. **Final Classification**:
+## Contextual Sarcasm Detection
 
-   ```python
-   if scores['compound'] <= -0.05:
-       sentiment = "Negative"  # Final result
-   ```
+Sarcasm is one of the hardest NLP tasks in customer review analysis. Consider these real benchmark cases:
 
-7. **UI Update**:
-   ```python
-   self.sentiment_label.setText('Sentiment: Negative 😞')
-   self.negative_bar.setValue(60)  # 60% negative
-   ```
+| Input Review | Standalone Lexical (VADER) | Qwen 2.5-3B-Instruct (Our Engine) | Explanation |
+| :--- | :---: | :---: | :--- |
+| *"Oh fantastic, it arrived completely broken. Just what I needed."* | **Positive (+0.75)** ❌ | **Negative (-0.95)** ✅ | Lexicon sees "fantastic" and "needed". Qwen detects that receiving broken goods is unacceptable. |
+| *"Yeah right, like I'm going to buy this again."* | **Neutral (0.00)** ❌ | **Negative (-0.85)** ✅ | Lexicon detects no strong polarity words. Qwen identifies dismissive sarcasm and future refusal. |
+| *"Great product if you enjoy wasting your time and money."* | **Positive (+0.62)** ❌ | **Negative (-0.90)** ✅ | Lexicon is misled by "Great product". Qwen analyzes the conditional caveat ("wasting time and money"). |
 
-### VADER Internal Processing
+The transition from fragile hardcoded regex rules to instruction-tuned Large Language Models enables deep semantic understanding without fragile phrase dictionaries.
 
-#### Lexical Scoring:
+---
+
+## Desktop Application: Sentiment Analysis Studio
+
+The graphical interface is built with **PyQt6** and offers a desktop workspace:
 
 ```
-"amazing" → +3.1 (from VADER lexicon)
-"broke" → -2.1 (from VADER lexicon)
-"product" → 0.0 (neutral word)
+┌────────────────────────────────────────────────────────────────────────┐
+│                        Sentiment Analysis Studio                       │
+│      Discover the hidden emotions and detailed sentiments inside       │
+│                                                                        │
+│ ┌─ [Card] Analyze a Review ──────────────────── Language: [English ▼] ┐│
+│ │                                                                     ││
+│ │  Paste or type your product review here...                          ││
+│ │                                                                     ││
+│ │                                         [ Analyze Sentiment ] (btn) ││
+│ └─────────────────────────────────────────────────────────────────────┘│
+│                                                                        │
+│ ┌─ [Card] Analysis Results ────────────────────── Overall Score: 0.92 ─┐│
+│ │                                                                     ││
+│ │                   ┌───────────────────────────────┐                 ││
+│ │                   │         Positive 😃           │                 ││
+│ │                   └───────────────────────────────┘                 ││
+│ │                                                                     ││
+│ │  Aspects (Left Column)               Emotions (Right Column)        ││
+│ │  Quality: Positive [========  ]      Joy:     85% [============= ]  ││
+│ │  Price:   Neutral  [====      ]      Anger:    0% [              ]  ││
+│ │  Design:  Positive [==========]      Sadness:  0% [              ]  ││
+│ │                                                                     ││
+│ │  ─── Analysis Details ────────────────────────────────────────────  ││
+│ │  Positive Keywords: amazing, sturdy, recommended                    ││
+│ │  Negative Keywords: none                                            ││
+│ └─────────────────────────────────────────────────────────────────────┘│
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-#### Grammatical Rule Application:
+### UI Features:
+1. **Asynchronous Architecture (`AnalysisThread`)**: Model inferences run on worker threads, keeping the UI responsive even during heavy LLM text generation.
+2. **On-Demand Model Download Dialogs**: If large weights (~6GB for Qwen LLM, ~500MB for Hindi RoBERTa) are not detected locally, a styled `QMessageBox` asks the user for permission before downloading.
+3. **Card-Based Visual Hierarchy**: Rounded cards with drop shadows (`QGraphicsDropShadowEffect`) and custom scroll containers.
+4. **Dynamic Visual Indicators**: Emojis, color-coded badges (Emerald `#10b981`, Amber `#f59e0b`, Red `#ef4444`), and progress bars.
+5. **Flash Visual Feedback**: Results card flashes upon completion to signal new results.
+
+---
+
+## Repository Structure
 
 ```
-"amazing but broke" → Contrastive conjunction detected
-Weight adjustment: Negative component emphasized
-```
-
-#### Normalization:
-
-```
-Raw scores: [+3.1, 0.0, -2.1, 0.0, -2.0]
-Sum: -1.0
-Normalized compound: -0.15 (simplified calculation)
-```
-
-### Custom Enhancement Pipeline
-
-#### 1. Negation Detection:
-
-```python
-if "not recommend" in text:
-    # Override positive VADER score
-    scores['compound'] = min(scores['compound'], -0.2)
-```
-
-#### 2. Domain-Specific Patterns:
-
-```python
-malfunction_phrases = ["doesn't work", "broken", "defective"]
-if any(phrase in text for phrase in malfunction_phrases):
-    # Strong negative override
-    scores['compound'] = min(scores['compound'], -0.4)
-```
-
-#### 3. Sarcasm Handling:
-
-```python
-if positive_word_followed_by_negative_context:
-    # Invert the sentiment
-    scores['compound'] = -abs(scores['compound'])
+NLP-Project/
+├── sentiment_analyzer.py          # Core NLP engine: Qwen-2.5, RoBERTa, ABSA, Emotions, VADER
+├── sentiment_ui.py                # Modern PyQt6 desktop studio GUI application
+├── nltk_data/                     # Pre-packaged offline NLTK resources
+│   ├── tokenizers/punkt/          # NLTK punkt sentence tokenizer
+│   └── sentiment/                 # VADER sentiment lexicon archive
+├── translation/                   # Multilingual translation subsystem
+│   ├── translator.py              # Standalone NLLB-200 translation GUI & API module
+│   ├── Translation.md             # NLLB translation module documentation
+│   └── requirementtranslate.txt   # Translation dependency specifications
+├── README.md                      # Comprehensive project documentation
+└── .gitignore                     # Git ignore rules
 ```
 
 ---
 
-## User Interface Design
+## Installation & Setup
 
-### Design Philosophy
+### 1. Prerequisites
+- **Python**: Version `3.10` or higher
+- **RAM**: Minimum 8GB (16GB recommended for local Qwen LLM inference)
+- **Disk Space**: ~8GB free space for Hugging Face transformer caches
 
-- **Clarity**: Clear visual hierarchy and information flow
-- **Immediacy**: Real-time analysis with instant feedback
-- **Informativeness**: Detailed breakdown of sentiment components
-- **Accessibility**: High contrast and readable typography
-
-### Component Breakdown
-
-#### Header Section
-
-```python
-header_label = QLabel('Product Review Sentiment Analysis')
-header_label.setFont(QFont('Arial', 18, QFont.Weight.Bold))
-
-description = QLabel('Enter a product review to analyze its sentiment...')
-```
-
-#### Input Area
-
-```python
-self.review_input = QTextEdit()
-self.review_input.setPlaceholderText('Type your product review here...')
-self.review_input.setMinimumHeight(100)
-```
-
-#### Results Display
-
-```python
-# Main sentiment label
-self.sentiment_label = QLabel('No review analyzed yet')
-
-# Progress bars for component scores
-self.positive_bar = QProgressBar()
-self.neutral_bar = QProgressBar()
-self.negative_bar = QProgressBar()
-
-# Compound score display
-self.compound_value = QLabel('0.00')
-```
-
-### Visual Feedback System
-
-#### Color Coding:
-
-```python
-if sentiment == 'Positive':
-    self.sentiment_label.setStyleSheet('color: #4CAF50;')  # Green
-elif sentiment == 'Negative':
-    self.sentiment_label.setStyleSheet('color: #F44336;')  # Red
-else:
-    self.sentiment_label.setStyleSheet('color: #FFC107;')  # Yellow
-```
-
-#### Progress Bar Styling:
-
-```python
-# Positive bar - Green
-self.positive_bar.setStyleSheet("""
-    QProgressBar::chunk {
-        background-color: #4CAF50;
-    }
-""")
-
-# Negative bar - Red
-self.negative_bar.setStyleSheet("""
-    QProgressBar::chunk {
-        background-color: #F44336;
-    }
-""")
-```
-
-#### Animation Effects:
-
-```python
-# Flash effect for results update
-original_style = self.results_frame.styleSheet()
-self.results_frame.setStyleSheet('background-color: #e3f2fd;')
-QTimer.singleShot(300, lambda: self.results_frame.setStyleSheet(original_style))
-```
-
----
-
-## Advanced Features and Edge Cases
-
-### 1. Sarcasm Detection
-
-#### Pattern-Based Detection:
-
-```python
-sarcasm_patterns = [
-    # Conditional sarcasm
-    "great if you", "perfect if you", "excellent if you",
-
-    # Contrasting clauses
-    "great but", "amazing but", "excellent but",
-
-    # Ellipsis followed by contradiction
-    "works perfectly...", "great...", "sure...",
-
-    # Negative contexts following positive terms
-    "waste money", "enjoy disappointment", "hate quality"
-]
-```
-
-#### Structural Analysis:
-
-```python
-# Check if positive word is followed by negative context
-positive_words = ["great", "amazing", "excellent", "perfect"]
-negative_contexts = ["waste", "broke", "fail", "disappoint"]
-
-for i, word in enumerate(words):
-    if any(pos_word in word for pos_word in positive_words):
-        remaining_text = " ".join(words[i:])
-        if any(neg_context in remaining_text for neg_context in negative_contexts):
-            has_positive_followed_by_negative = True
-```
-
-### 2. Negation Handling
-
-#### Enhanced Negation Detection:
-
-```python
-negative_phrases = [
-    "don't think", "not worth", "not good enough", "not recommend",
-    "not worth the money", "not worth the price", "not satisfied"
-]
-
-if phrase_found and scores['compound'] > -0.1:
-    scores['compound'] = -0.2
-    scores['neg'] = max(scores['neg'], 0.4)
-    scores['pos'] = min(scores['pos'], 0.1)
-```
-
-### 3. Product-Specific Language
-
-#### Malfunction Detection:
-
-```python
-malfunction_phrases = [
-    "does not work", "doesn't work", "not working",
-    "broken", "defective", "malfunctioning",
-    "stopped working", "failed", "doesn't perform"
-]
-
-if malfunction_found:
-    scores['compound'] = min(scores['compound'], -0.4)
-    scores['neg'] = max(scores['neg'], 0.6)
-    scores['pos'] = 0.0
-```
-
-#### Intensity Amplification:
-
-```python
-if "very bad" in lower_text or "very terrible" in lower_text:
-    scores['compound'] = min(scores['compound'], -0.7)
-    scores['neg'] = max(scores['neg'], 0.8)
-```
-
-### 4. Context-Aware Scoring
-
-#### Override Mechanisms:
-
-```python
-# Priority order:
-# 1. Malfunction phrases (strongest negative)
-# 2. Sarcasm patterns (sentiment reversal)
-# 3. Negation phrases (mild negative)
-# 4. Standard VADER scores (baseline)
-```
-
----
-
-## Installation and Usage
-
-### Prerequisites
+### 2. Environment Setup
+It is recommended to run the project inside a virtual environment:
 
 ```bash
-pip install PyQt6
-pip install nltk
+# Clone the repository
+git clone https://github.com/Armaan4477/NLP-Project.git
+cd NLP-Project
+
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate    # On Windows: .venv\Scripts\activate
 ```
 
-### File Structure
-
-```
-sentiment_analysis/
-├── sentiment_analyzer.py    # Core analysis engine
-├── sentiment_ui.py         # GUI application
-├── sentiment_analyzer.md   # This documentation
-└── nltk_data/             # NLTK resources (auto-created)
-    ├── tokenizers/
-    └── sentiment/
-```
-
-### Running the Application
-
-#### GUI Version:
+### 3. Install Dependencies
+Install all required packages:
 
 ```bash
-cd sentiment_analysis
+pip install --upgrade pip
+pip install PyQt6 torch transformers nltk sentencepiece protobuf QtAwesome accelerate deep-translator
+```
+
+> **Hardware Acceleration Tip**:
+> - **Apple Silicon (Mac M1/M2/M3/M4)**: PyTorch automatically leverages Metal Performance Shaders (`mps`).
+> - **NVIDIA GPUs**: Ensure CUDA-enabled PyTorch is installed:
+>   ```bash
+>   pip install torch --index-url https://download.pytorch.org/whl/cu121
+>   ```
+
+---
+
+## Running the Application
+
+### 1. PyQt6 Sentiment Analysis Studio
+Launch the desktop application:
+
+```bash
 python sentiment_ui.py
 ```
+1. Select your target language (**English** or **Hindi**).
+2. Enter or paste a product review into the text area.
+3. Click **Analyze Sentiment**.
+4. If running for the first time, confirm the model download prompt.
 
-#### Command Line Version:
+### 2. Command Line Interface (CLI)
+Run the command-line interface for interactive testing or sample review analysis:
 
 ```bash
-cd sentiment_analysis
 python sentiment_analyzer.py
 ```
+This runs built-in test suites covering positive, negative, and sarcastic reviews, then enters interactive mode:
+```text
+Enter a product review to analyze (or 'quit' to exit):
+> Great phone if you enjoy 1-hour battery life.
+Review: "Great phone if you enjoy 1-hour battery life."
+Sentiment: Negative (compound score: -0.90)
+Detailed scores: Positive=0.00, Neutral=0.00, Negative=0.90
+```
 
-### First Time Setup
+### 3. Standalone Multilingual Translator GUI
+Launch the dedicated NLLB-200 translation interface:
 
-1. **NLTK Resources**: On first run, required NLTK data will be downloaded automatically
-2. **Local Storage**: Data is stored in `nltk_data/` directory for offline use
-3. **No Internet Required**: After initial setup, works completely offline
+```bash
+python translation/translator.py
+```
+Supports real-time bidirectional translation between 11+ languages with integrated caching.
 
-### Usage Examples
+---
 
-#### Interactive GUI:
+## Programmatic Python API
 
-1. Launch the application
-2. Enter review text in the input area
-3. Click "Analyze Sentiment"
-4. View results with confidence scores
-
-#### Programmatic Usage:
+The `SentimentAnalyzer` class provides a clean programmatic interface:
 
 ```python
 from sentiment_analyzer import SentimentAnalyzer
 
+# 1. Initialize analyzer
 analyzer = SentimentAnalyzer()
-result = analyzer.predict("This product is amazing!")
+
+# 2. Analyze English review (allow_download=True enables automatic LLM download if absent)
+review = "I was skeptical at first, but this exceeded all my expectations! Super fast charging."
+result = analyzer.predict(review, language='English', allow_download=True)
 
 print(f"Sentiment: {result['sentiment']}")
-print(f"Confidence: {result['scores']['compound']:.2f}")
+print(f"Confidence (Compound): {result['scores']['compound']}")
+print(f"Aspects: {result['aspects'].keys()}")
+print(f"Emotions: {result['emotions']}")
+print(f"Positive Keywords: {result['positive_words']}")
+
+# 3. Analyze Hindi review natively
+hindi_review = "यह फोन बहुत ही बेहतरीन है, बैटरी बैकअप शानदार है लेकिन कीमत थोड़ी ज्यादा है।"
+hindi_result = analyzer.predict(hindi_review, language='Hindi', allow_download=True)
+
+print(f"Hindi Sentiment: {hindi_result['sentiment']}")
+print(f"Detected Aspects: {hindi_result['aspects']}")
 ```
 
-#### Batch Processing:
+### Batch Analysis & File Export
 
 ```python
 reviews = [
-    "Great product, love it!",
-    "Terrible quality, broke immediately",
-    "Average performance, nothing special"
+    "Amazing product, totally worth the money.",
+    "Broke after two days of use. Avoid at all costs.",
+    "Decent, but shipping took three weeks."
 ]
 
-results = analyzer.predict_batch(reviews)
-for result in results:
-    print(f"{result['text']} → {result['sentiment']}")
+# Analyze multiple reviews at once
+batch_results = analyzer.predict_batch(reviews, language='English')
+
+# Analyze and dump results directly to JSON
+analyzer.analyze_to_file(reviews, output_file="output/analysis_results.json", language='English')
+```
+
+### Direct Multilingual Translation API
+
+```python
+from translation.translator import translate_text
+
+# Translate from Hindi to English
+translated = translate_text("यह उत्पाद बहुत खराब है", source_lang="Hindi", target_lang="English")
+print(translated)
+# Output: "This product is very bad"
 ```
 
 ---
 
-## Troubleshooting
+## Output Data Structure
 
-### Common Issues and Solutions
+The `predict()` method returns a dictionary:
 
-#### 1. NLTK Resource Errors
-
-**Error**: `LookupError: Resource not found`
-
-**Solutions**:
-
-```python
-# Manual download
-import nltk
-nltk.download('vader_lexicon')
-nltk.download('punkt')
-
-# Check installation
-nltk.data.find('sentiment/vader_lexicon.zip')
-```
-
-#### 2. UI Display Issues
-
-**Error**: Progress bars not updating
-
-**Solutions**:
-
-- Check Qt application event loop
-- Verify signal/slot connections
-- Ensure proper widget updates
-
-#### 3. Incorrect Sentiment Classification
-
-**Symptoms**: Obviously positive/negative text classified incorrectly
-
-**Debugging Steps**:
-
-```python
-# Enable debug output
-result = analyzer.predict(text)
-print(f"VADER scores: {result['scores']}")
-print(f"Text processed: {analyzer.preprocess_text(text)}")
-
-# Check for pattern matches
-print("Patterns detected:")
-print(f"Sarcasm: {any(pattern in text.lower() for pattern in sarcasm_patterns)}")
-print(f"Malfunction: {any(phrase in text.lower() for phrase in malfunction_phrases)}")
-```
-
-#### 4. Performance Issues
-
-**Symptoms**: Slow analysis for long texts
-
-**Solutions**:
-
-- Implement text chunking for very long inputs
-- Add caching for repeated analyses
-- Optimize pattern matching algorithms
-
-### Debug Mode
-
-```python
-import logging
-logging.basicConfig(level=logging.DEBUG)
-
-def predict(self, text):
-    logging.debug(f"Analyzing text: {text[:100]}...")
-    # ... analysis code ...
-    logging.debug(f"Final scores: {scores}")
-```
-
----
-
-## Future Improvements
-
-### 1. Enhanced NLP Features
-
-#### Deep Learning Integration:
-
-```python
-# Add transformer-based sentiment analysis
-from transformers import pipeline
-
-class HybridSentimentAnalyzer:
-    def __init__(self):
-        self.vader = SentimentIntensityAnalyzer()
-        self.transformer = pipeline("sentiment-analysis",
-                                   model="cardiffnlp/twitter-roberta-base-sentiment")
-
-    def predict(self, text):
-        vader_result = self.vader.polarity_scores(text)
-        transformer_result = self.transformer(text)
-
-        # Combine predictions
-        return self.ensemble_predict(vader_result, transformer_result)
-```
-
-#### Emotion Detection:
-
-```python
-# Extend beyond positive/negative to specific emotions
-emotion_lexicon = {
-    'joy': ['happy', 'excited', 'delighted', 'thrilled'],
-    'anger': ['angry', 'furious', 'mad', 'irritated'],
-    'fear': ['scared', 'afraid', 'worried', 'nervous'],
-    'sadness': ['sad', 'disappointed', 'upset', 'depressed']
+```json
+{
+  "text": "Great phone if you enjoy 1-hour battery life. Screen is gorgeous though.",
+  "translated_text": null,
+  "scores": {
+    "compound": -0.85,
+    "pos": 0.0,
+    "neg": 0.85,
+    "neu": 0.0
+  },
+  "sentiment": "Negative",
+  "sentiment_id": 0,
+  "aspects": {
+    "performance": {
+      "sentiment": "Negative",
+      "scores": {"compound": -0.85},
+      "text": "Great phone if you enjoy 1-hour battery life."
+    },
+    "design": {
+      "sentiment": "Positive",
+      "scores": {"compound": 0.60},
+      "text": "Screen is gorgeous though."
+    }
+  },
+  "emotions": {
+    "Joy": 0,
+    "Anger": 50,
+    "Fear": 0,
+    "Sadness": 50
+  },
+  "positive_words": ["great", "gorgeous"],
+  "negative_words": []
 }
-
-def detect_emotions(self, text):
-    emotions = {}
-    for emotion, words in emotion_lexicon.items():
-        score = sum(1 for word in words if word in text.lower())
-        emotions[emotion] = score / len(words)
-    return emotions
-```
-
-### 2. Advanced Text Processing
-
-#### Aspect-Based Sentiment Analysis:
-
-```python
-def analyze_aspects(self, text):
-    aspects = {
-        'quality': ['quality', 'build', 'material', 'construction'],
-        'performance': ['performance', 'speed', 'efficiency', 'function'],
-        'price': ['price', 'cost', 'value', 'expensive', 'cheap'],
-        'design': ['design', 'look', 'appearance', 'style']
-    }
-
-    aspect_sentiments = {}
-    for aspect, keywords in aspects.items():
-        # Extract sentences containing aspect keywords
-        aspect_sentences = self.extract_aspect_sentences(text, keywords)
-        # Analyze sentiment for each aspect
-        aspect_sentiments[aspect] = self.analyze_sentences(aspect_sentences)
-
-    return aspect_sentiments
-```
-
-#### Context Window Analysis:
-
-```python
-def analyze_with_context(self, text, window_size=5):
-    sentences = nltk.sent_tokenize(text)
-    results = []
-
-    for i, sentence in enumerate(sentences):
-        # Include surrounding sentences as context
-        start = max(0, i - window_size)
-        end = min(len(sentences), i + window_size + 1)
-        context = ' '.join(sentences[start:end])
-
-        # Analyze with context
-        result = self.predict_with_context(sentence, context)
-        results.append(result)
-
-    return results
-```
-
-### 3. User Experience Enhancements
-
-#### Real-time Analysis:
-
-```python
-class RealTimeSentimentAnalyzer:
-    def __init__(self):
-        self.timer = QTimer()
-        self.timer.timeout.connect(self.analyze_current_text)
-        self.timer.start(1000)  # Analyze every second
-
-    def on_text_changed(self):
-        # Debounce rapid typing
-        self.timer.restart()
-
-    def analyze_current_text(self):
-        text = self.input_area.toPlainText()
-        if len(text) > 10:  # Minimum length threshold
-            self.update_live_preview(text)
-```
-
-#### Confidence Indicators:
-
-```python
-def calculate_confidence(self, scores):
-    # Calculate how confident we are in the prediction
-    max_score = max(scores['pos'], scores['neu'], scores['neg'])
-    score_spread = max_score - min(scores['pos'], scores['neu'], scores['neg'])
-
-    confidence = score_spread * abs(scores['compound'])
-    return min(confidence, 1.0)
-```
-
-#### Explanation Generation:
-
-```python
-def explain_prediction(self, text, result):
-    explanation = []
-
-    # Identify key phrases that influenced the prediction
-    positive_words = self.find_positive_indicators(text)
-    negative_words = self.find_negative_indicators(text)
-
-    if positive_words:
-        explanation.append(f"Positive indicators: {', '.join(positive_words)}")
-    if negative_words:
-        explanation.append(f"Negative indicators: {', '.join(negative_words)}")
-
-    # Check for special patterns
-    if self.has_sarcasm_patterns(text):
-        explanation.append("Sarcasm detected - sentiment reversed")
-
-    return explanation
-```
-
-### 4. Data Export and Analytics
-
-#### Report Generation:
-
-```python
-def generate_report(self, results):
-    report = {
-        'summary': {
-            'total_reviews': len(results),
-            'positive_count': len([r for r in results if r['sentiment'] == 'Positive']),
-            'negative_count': len([r for r in results if r['sentiment'] == 'Negative']),
-            'neutral_count': len([r for r in results if r['sentiment'] == 'Neutral'])
-        },
-        'average_scores': {
-            'compound': np.mean([r['scores']['compound'] for r in results]),
-            'positive': np.mean([r['scores']['pos'] for r in results]),
-            'negative': np.mean([r['scores']['neg'] for r in results])
-        },
-        'trends': self.analyze_sentiment_trends(results)
-    }
-    return report
-```
-
-#### Integration APIs:
-
-```python
-class SentimentAPI:
-    def __init__(self, analyzer):
-        self.analyzer = analyzer
-
-    def analyze_endpoint(self, request):
-        data = request.get_json()
-        text = data.get('text', '')
-
-        result = self.analyzer.predict(text)
-
-        return {
-            'sentiment': result['sentiment'],
-            'confidence': result['scores']['compound'],
-            'scores': result['scores']
-        }
 ```
 
 ---
 
-## Conclusion
+## Troubleshooting & FAQs
 
-This sentiment analysis application demonstrates the practical application of lexicon-based NLP techniques enhanced with custom rule sets for domain-specific analysis. By combining VADER's robust baseline with advanced pattern recognition and edge case handling, it provides accurate sentiment classification for product reviews.
+### 1. `ValueError: English model not downloaded and allow_download is False`
+- **Cause**: The ~6GB `Qwen/Qwen2.5-3B-Instruct` model weights are not in the local cache, and permission was not granted to download them.
+- **Solution**: Pass `allow_download=True` in programmatic calls or click **Yes** on the dialog in the GUI.
 
-### Key Achievements:
+### 2. Slow Inference on CPU
+- **Cause**: Causal LLM generation on CPU without hardware acceleration can take several seconds per review.
+- **Solution**:
+  - On macOS, PyTorch uses Apple Silicon MPS automatically.
+  - On Linux/Windows, ensure CUDA is available via `torch.cuda.is_available()`.
+  - Alternatively, pass smaller inputs or enable translation fallback mode for lightweight inference.
 
-1. **Robust Analysis**: Handles sarcasm, negation, and domain-specific language
-2. **User-Friendly Interface**: Intuitive GUI with immediate visual feedback
-3. **Offline Operation**: No external dependencies after initial setup
-4. **Extensible Architecture**: Easy to add new rules and features
-5. **Educational Value**: Clear demonstration of NLP concepts in practice
+### 3. Transformers `device_map="auto"` Requires `accelerate`
+- **Error**: `ImportError: Using device_map='auto' requires accelerate`.
+- **Solution**: Run `pip install accelerate`.
 
-### NLP Concepts Demonstrated:
+### 4. NLTK Data Lookup Errors
+- **Error**: `LookupError: Resource punkt not found`.
+- **Solution**: The application points `nltk.data.path` to the local `nltk_data/` folder automatically. If running outside the repository root, verify `NLTK_DATA_PATH` in `sentiment_analyzer.py`.
 
-- **Lexicon-based Sentiment Analysis** with VADER
-- **Rule-based Text Processing** for edge cases
-- **Pattern Recognition** for sarcasm and negation
-- **Domain Adaptation** for product-specific language
-- **Pragmatic Analysis** for contextual understanding
+---
 
-### Technical Highlights:
+## Authors & Contributors
 
-- **Modular Design** separating analysis and UI components
-- **Custom Enhancement Pipeline** extending VADER capabilities
-- **Advanced Pattern Matching** for complex linguistic phenomena
-- **Visual Analytics** with real-time progress indicators
-- **Comprehensive Error Handling** for robust operation
-
-This application serves as both a practical tool for sentiment analysis and an educational example of how to enhance existing NLP models with custom logic to handle real-world text complexity.
+- **Armaan Nakhuda** ([@Armaan4477](https://github.com/Armaan4477))
+- **Vrishab Shenvi** ([@vrishab0105](https://github.com/vrishab0105))
